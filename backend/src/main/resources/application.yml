@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: jiayuan-boot
+  profiles:
+    active: dev
+
+# Flowable 流程引擎配置
+flowable:
+  # Flowable 内部表由 sql/mysql 最新全量脚本和迁移脚本维护，启动时不自动改表
+  database-schema-update: false
+  # 当前项目只使用 BPMN 流程引擎，关闭未使用的 IDM/Event Registry 独立引擎
+  idm:
+    enabled: false
+  eventregistry:
+    enabled: false
+
+# 在 banner.txt 中显示项目版本，使用 @project.version@ 从 pom.xml 获取
+project:
+  version: @project.version@

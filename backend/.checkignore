@@ -1,0 +1,7 @@
+# 预存测试代码重复（Lab 2 遗留，非本次 MR 引入）
+src/test/java/com/jiayuan/boot/system/oss/service/impl/MinioFileServiceImplFileOpsTest.java:duplication/block
+src/test/java/com/jiayuan/boot/system/oss/service/impl/MinioFileServiceImplListFilesTest.java:duplication/block
+src/test/java/com/jiayuan/boot/system/oss/service/impl/MinioFileServiceImplRecycleBinTest.java:duplication/block
+# 预存 FileInfoVO/FileTreeResponseVO 字段重复
+src/main/java/com/jiayuan/boot/system/oss/model/vo/FileInfoResponseVO.java:duplication/block
+src/main/java/com/jiayuan/boot/system/oss/model/vo/FileTreeResponseVO.java:duplication/block

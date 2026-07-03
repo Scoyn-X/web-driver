@@ -1,0 +1,520 @@
+@forward "element-plus/theme-chalk/src/common/var.scss" with (
+  $colors: (
+    "primary": (
+      // 默认主题色 - 修改此值时需同步修改 src/settings.ts 中的 themeColor
+      "base": #4080ff,
+    ),
+    "success": (
+      "base": #00b42a,
+    ),
+    "warning": (
+      "base": #ff7d00,
+    ),
+    "danger": (
+      "base": #f53f3f,
+    ),
+    "info": (
+      "base": #a9aeb8,
+    ),
+  ),
+  // $bg-color: ("page": #f8f8f9),
+  $bg-color: (
+      "page": #ffffff,
+    ),
+
+  // Typography
+  $font-family: (
+      "":
+        "'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', sans-serif",
+    ),
+  $font-size: (
+    "extra-large": 17px,
+    "large": 15px,
+    "medium": 14px,
+    "base": 13px,
+    "small": 12px,
+    "extra-small": 11px,
+  ),
+
+  // zIndex
+  $z-index: (
+      "normal": 1,
+      "top": 1000,
+      "popper": 2000,
+    ),
+
+  // size
+  $common-component-size: (
+      "large": 28px,
+      "default": 26px,
+      "small": 24px,
+    ),
+
+  // overlay
+  $overlay-color: (
+      "": rgba(0, 0, 0, 0.8),
+      "light": rgba(0, 0, 0, 0.7),
+      "lighter": rgba(0, 0, 0, 0.5),
+    ),
+
+  // mask
+  $mask-color: (
+      "": rgba(255, 255, 255, 0.9),
+      "extra-light": rgba(255, 255, 255, 0.3),
+    ),
+
+  // Components
+  // Checkbox
+  $checkbox: (
+      "font-size": 13px,
+      "input-height": 13px,
+      "input-width": 13px,
+    ),
+  $checkbox-bordered-padding-left: (
+    "large": 10px,
+    "default": 8px,
+    "small": 8px,
+  ),
+  $checkbox-bordered-padding-right: (
+    "large": 16px,
+    "default": 12px,
+    "small": 12px,
+  ),
+  // Radio
+  $radio: (
+      "input-height": 13px,
+      "input-width": 13px,
+    ),
+  $radio-height: (
+    "large": 28px,
+    "default": 26px,
+    "small": 24px,
+  ),
+  $radio-bordered-input-height: (
+    "large": 14px,
+    "default": 13px,
+    "small": 12px,
+  ),
+  $radio-bordered-input-width: (
+    "large": 14px,
+    "default": 13px,
+    "small": 12px,
+  ),
+  // Select
+  $select: (
+      "input-font-size": 13px,
+      "width": 100%,
+    ),
+  $select-option: (
+    "height": 24px,
+  ),
+  $select-group: (
+    "height": 24px,
+    "font-size": 12px,
+  ),
+  $select-dropdown: (
+    "max-height": 274px,
+    "padding": 6px 0,
+    "empty-padding": 10px 0,
+    "header-padding": 10px,
+    "footer-padding": 10px,
+  ),
+  $select-wrapper-padding: (
+    "large": 4px 12px,
+    "default": 2px 10px,
+    "small": 2px 8px,
+  ),
+  $select-near-margin-left: (
+    "large": -8px,
+    "default": -6px,
+    "small": -4px,
+  ),
+  $select-item-gap: (
+    "large": 6px,
+    "default": 4px,
+    "small": 4px,
+  ),
+  $select-item-height: (
+    "large": 24px,
+    "default": 22px,
+    "small": 20px,
+  ),
+  // Alert
+  // Alert
+  // css3 var in packages/theme-chalk/src/alert.scss
+  $alert: (
+      "padding": 8px 12px,
+      "title-font-size": 14px,
+      "title-with-description-font-size": 14px,
+      "description-font-size": 13px,
+      "close-font-size": 15px,
+      "close-customed-font-size": 15px,
+      "icon-size": 15px,
+      "icon-large-size": 20px,
+    ),
+  // Message
+  $messagebox: (
+      "width": 420px,
+      "border-radius": 4px,
+      "error-font-size": 12px,
+      "padding-primary": 12px,
+    ),
+  $message: (
+    "padding": 8px 12px,
+    "close-size": 16px,
+  ),
+  // Notification
+  $notification: (
+      "width": 330px,
+      "padding": 14px 26px 14px 12px,
+      "radius": 8px,
+      "icon-size": 24px,
+      "group-margin-left": 12px,
+      "group-margin-right": 8px,
+      "title-font-size": 15px,
+    ),
+  // Input
+  $input-font-size: (
+      "large": 14px,
+      "default": 13px,
+      "small": 12px,
+    ),
+  $input-height: (
+    "large": 28px,
+    "default": 26px,
+    "small": 24px,
+  ),
+  $input-line-height: (
+    "large": 28px,
+    "default": 26px,
+    "small": 24px,
+  ),
+  $input-number-width: (
+    "large": 150px,
+    "default": 130px,
+    "small": 120px,
+  ),
+  $input-padding-horizontal: (
+    "large": 12px,
+    "default": 10px,
+    "small": 8px,
+  ),
+  // Cascader
+  $cascader-item-gap: (
+      "large": 6px,
+      "default": 6px,
+      "small": 4px,
+    ),
+  $cascader-wrapper-padding: (
+    "large": 4px,
+    "default": 4px,
+    "small": 2px,
+  ),
+  $cascader-item-height: (
+    "large": 24px,
+    "default": 22px,
+    "small": 20px,
+  ),
+  $cascader-search-input-margin-left: (
+    "large": 7px,
+    "default": 7px,
+    "small": 5px,
+  ),
+  $cascader-dropdown: (
+    "header-padding": 10px,
+    "footer-padding": 10px,
+  ),
+  // statistic
+  $statistic: (
+      "title-font-weight": 400,
+      "content-font-weight": 400,
+    ),
+  // Button
+  $button-font-size: (
+      "large": 14px,
+      "default": 13px,
+      "small": 12px,
+    ),
+  $button-padding-vertical: (
+    "large": 10px,
+    "default": 8px,
+    "small": 6px,
+  ),
+  $button-padding-horizontal: (
+    "large": 13px,
+    "default": 11px,
+    "small": 9px,
+  ),
+  // Switch
+  // Dialog
+  $dialog: (
+      "width": 50%,
+      "margin-top": 20vh,
+      "content-font-size": 13px,
+      "padding-primary": 16px,
+    ),
+  // Tour
+  $tour: (
+      "width": 520px,
+      "padding-primary": 12px,
+      "title-font-size": 15px,
+      "title-font-weight": 400,
+      "font-size": 13px,
+      "border-radius": 4px,
+    ),
+  // Anchor
+  $anchor: (
+      "padding-indent": 14px,
+      "line-height": 22px,
+      "font-size": 12px,
+    ),
+  // Segmented
+  $segmented: (
+      "padding": 2px,
+    ),
+  // Mention
+  $mention: (
+      "option-height": 24px,
+      "option-min-width": 100px,
+      "option-loading-padding": 10px 0,
+      "max-height": 174px,
+      "padding": 6px 0,
+      "header-padding": 10px,
+      "footer-padding": 10px,
+    ),
+  // InputTag
+  $input-tag-padding: (
+      "large": 4px,
+      "default": 4px,
+      "small": 2px,
+    ),
+  $input-tag-inner-padding: (
+    "large": 6px,
+    "default": 6px,
+    "small": 6px,
+  ),
+  $input-tag-gap: (
+    "large": 6px,
+    "default": 4px,
+    "small": 4px,
+  ),
+  // Table
+  $table-font-size: (
+      "large": 14px,
+      "default": 13px,
+      "small": 12px,
+    ),
+  $table-padding: (
+    "large": 4px 0,
+    "default": 2px 0,
+    "small": 0px 0,
+  ),
+  $table-cell-padding: (
+    "large": 0 16px,
+    "default": 0 12px,
+    "small": 0 8px,
+  ),
+  // Pagination
+  $pagination: (
+      "font-size": 13px,
+      "border-radius": 2px,
+      "button-width": 26px,
+      "button-height": 26px,
+      "font-size-small": 12px,
+      "button-width-small": 24px,
+      "button-height-small": 24px,
+      "button-width-large": 28px,
+      "button-height-large": 28px,
+      "item-gap": 12px,
+    ),
+  // Popup
+  // Popover
+  $popover: (
+      "padding": 10px,
+      "padding-large": 12px 16px,
+      "title-font-size": 15px,
+      "border-radius": 4px,
+    ),
+  // popper
+  // Pay attention to the difference between 'popper' and 'popover'
+  // skeleton
+  // Tag
+  $tag: (
+      "font-size": 12px,
+      "border-radius": 4px,
+      "border-radius-rounded": 9999px,
+    ),
+  $tag-height: (
+    "large": 23px,
+    "default": 19px,
+    "small": 17px,
+  ),
+  $tag-padding: (
+    "large": 8px,
+    "default": 6px,
+    "small": 5px,
+  ),
+  $tag-icon-size: (
+    "large": 13px,
+    "default": 12px,
+    "small": 11px,
+  ),
+  // Text
+  // Tree
+  $tree: (
+      "node-content-height": 26px,
+    ),
+  // Dropdown
+  // drawer
+  $drawer: (
+      "padding-primary": 16px,
+      "dragger-size": 6px,
+    ),
+  // Badge
+  $badge: (
+      "radius": 10px,
+      "font-size": 12px,
+      "padding": 6px,
+      "size": 16px,
+    ),
+  // Card
+  $card: (
+      "border-radius": 4px,
+      "padding": 16px,
+    ),
+  // Slider
+  $slider: (
+      "border-radius": 3px,
+      "height": 6px,
+      "button-size": 20px,
+      "button-wrapper-size": 36px,
+      "button-wrapper-offset": -15px,
+    ),
+  // Menu
+  $menu: (
+      "item-height": 34px,
+      "sub-item-height": 34px,
+      "horizontal-height": 50px,
+      "horizontal-sub-item-height": 40px,
+      "base-level-padding": 12px,
+      "level-padding": 28px,
+      "icon-width": 24px,
+    ),
+  // Rate
+  $rate: (
+      "height": 20px,
+      "icon-size": 18px,
+      "icon-margin": 6px,
+      "fill-color": #f7ba2a,
+    ),
+  // DatePicker
+  $date-editor: (
+      "width": 180px,
+      "monthrange-width": 250px,
+      "daterange-width": 300px,
+      "datetimerange-width": 300px,
+    ),
+  // Loading
+  $loading: (
+      "spinner-size": 42px,
+      "fullscreen-spinner-size": 50px,
+    ),
+  // Scrollbar
+  // Carousel
+  $carousel: (
+      "arrow-font-size": 13px,
+      "arrow-size": 36px,
+      "arrow-background": rgba(31, 45, 61, 0.11),
+      "arrow-hover-background": rgba(31, 45, 61, 0.23),
+      "indicator-width": 30px,
+      "indicator-height": 2px,
+      "indicator-padding-horizontal": 4px,
+      "indicator-padding-vertical": 12px,
+    ),
+  // Collapse
+  $collapse: (
+      "header-height": 36px,
+      "header-font-size": 13px,
+      "content-font-size": 13px,
+    ),
+  // Transfer
+  $transfer: (
+      "panel-width": 200px,
+      "panel-header-height": 40px,
+      "panel-footer-height": 40px,
+      "panel-body-height": 278px,
+      "item-height": 30px,
+      "filter-height": 32px,
+    ),
+  // Timeline
+  $timeline: (
+      "node-size-normal": 13px,
+      "node-size-large": 13px,
+    ),
+  // Tabs
+  $tabs: (
+      "header-height": 32px,
+    ),
+  // Backtop
+  // Link
+  // Calendar
+  $calendar: (
+      "cell-width": 80px,
+    ),
+  // Form
+  $form: (
+      "inline-content-width": 220px,
+    ),
+  // Avatar
+  $avatar: (
+      "text-size": 13px,
+      "icon-size": 18px,
+    ),
+  $avatar-size: (
+    "large": 56px,
+    "default": 40px,
+    "small": 24px,
+  ),
+  // Empty
+  $empty: (
+      "padding": 40px 0,
+      "image-width": 160px,
+      "description-margin-top": 20px,
+      "bottom-margin-top": 20px,
+    ),
+  // Descriptions
+  // Result
+  $result: (
+      "padding": 40px 30px,
+      "icon-font-size": 64px,
+      "title-font-size": 20px,
+      "title-margin-top": 20px,
+      "subtitle-margin-top": 10px,
+      "extra-margin-top": 30px,
+    ),
+  // Upload
+  $upload: (
+      "dragger-padding-horizontal": 10px,
+      "dragger-padding-vertical": 40px,
+      "picture-card-size": 148px,
+    ),
+  // transition
+  $transition-duration: (
+      "": 0.25s,
+      "fast": 0.1s,
+    ),
+  // header
+  $header: (
+      "padding": 0,
+      "height": 40px,
+    ),
+  // main
+  $main: (
+      "padding": 0,
+    ),
+  // footer
+  $footer: (
+      "padding": 0,
+      "height": 20px,
+    )
+);

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiayuan.boot.system.team.mapper.TeamSpaceMapper">
+
+    <!-- 原子增加团队已用容量 -->
+    <update id="increaseUsedSpace">
+        UPDATE team_space
+        SET used_space = used_space + #{size}
+        WHERE id = #{teamId}
+        AND is_deleted = 0
+        AND (
+            total_quota = 9223372036854775807
+            OR used_space + #{size} &lt;= total_quota
+        )
+    </update>
+
+    <!-- 原子减少团队已用容量 -->
+    <update id="decreaseUsedSpace">
+        UPDATE team_space
+        SET used_space = GREATEST(used_space - #{size}, 0)
+        WHERE id = #{teamId}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 按 Owner 更新团队容量规格，不修改已用容量 -->
+    <update id="updateTotalQuotaByOwner">
+        UPDATE team_space
+        SET total_quota = #{totalQuota},
+            update_time = NOW()
+        WHERE owner_id = #{ownerId}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 更新单个团队容量规格，不修改已用容量 -->
+    <update id="updateTotalQuota">
+        UPDATE team_space
+        SET total_quota = #{totalQuota},
+            update_time = NOW()
+        WHERE id = #{teamId}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 锁定正常团队空间行 -->
+    <select id="lockActiveTeamSpace" resultType="long">
+        SELECT id FROM team_space
+        WHERE id = #{_parameter}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+        FOR UPDATE
+    </select>
+
+    <!-- 更新团队状态 -->
+    <update id="updateTeamStatus">
+        UPDATE team_space
+        SET status = #{status},
+            used_space = CASE WHEN #{status} = 'DISSOLVED' THEN 0 ELSE used_space END,
+            update_time = NOW()
+        WHERE id = #{teamId}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+    </update>
+
+    <!-- 更新团队 Owner -->
+    <update id="updateOwner">
+        UPDATE team_space
+        SET owner_id = #{ownerId},
+            owner_account_id = #{ownerAccountId},
+            update_time = NOW()
+        WHERE id = #{teamId}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+    </update>
+
+</mapper>

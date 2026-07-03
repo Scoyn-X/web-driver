@@ -1,0 +1,8 @@
+{
+  "serverUrl": "http://localhost:8080",
+  "outPath": "target",
+  "isStrict": false,
+  "allInOne": true,
+  "createDebugPage": false,
+  "style": "xt256"
+}

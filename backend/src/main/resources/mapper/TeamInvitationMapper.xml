@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiayuan.boot.system.team.mapper.TeamInvitationMapper">
+
+    <sql id="InvitationResponseColumns">
+        ti.id,
+        ti.team_id AS teamId,
+        ts.name AS teamName,
+        ts.description AS teamDescription,
+        ti.inviter_id AS inviterId,
+        ti.inviter_account_id AS inviterAccountId,
+        inviter.nickname AS inviterName,
+        inviter_account.account_name AS inviterAccountName,
+        ti.invitee_id AS inviteeId,
+        ti.invitee_account_id AS inviteeAccountId,
+        invitee.nickname AS inviteeName,
+        invitee_account.account_name AS inviteeAccountName,
+        ti.target_role AS targetRole,
+        ti.status,
+        ti.expire_at AS expireAt,
+        ti.create_time AS createTime
+    </sql>
+
+    <!-- 查询团队邀请响应列表 -->
+    <select id="selectTeamInvitationResponses" resultType="com.jiayuan.boot.system.team.model.vo.InvitationResponseVO">
+        SELECT <include refid="InvitationResponseColumns"/>
+        FROM team_invitation ti
+        LEFT JOIN team_space ts ON ti.team_id = ts.id AND ts.is_deleted = 0
+        LEFT JOIN sys_user inviter ON ti.inviter_id = inviter.id AND inviter.is_deleted = 0
+        LEFT JOIN sys_account inviter_account ON ti.inviter_account_id = inviter_account.id AND inviter_account.status = 1 AND inviter_account.is_deleted = 0
+        LEFT JOIN sys_user invitee ON ti.invitee_id = invitee.id AND invitee.is_deleted = 0
+        LEFT JOIN sys_account invitee_account ON ti.invitee_account_id = invitee_account.id AND invitee_account.status = 1 AND invitee_account.is_deleted = 0
+        WHERE ti.team_id = #{teamId}
+        AND ti.is_deleted = 0
+        <if test="status != null">
+            AND ti.status = #{status}
+        </if>
+        ORDER BY ti.create_time DESC, ti.id DESC
+    </select>
+
+    <!-- 同步标记团队下已过期待处理邀请 -->
+    <update id="expirePendingInvitationsByTeam">
+        UPDATE team_invitation
+        SET status = #{expiredStatus},
+            reason = #{reason},
+            update_time = NOW()
+        WHERE team_id = #{teamId}
+        AND status = #{pendingStatus}
+        AND expire_at IS NOT NULL
+        AND expire_at &lt;= #{now}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 查询账户收到的邀请响应列表 -->
+    <select id="selectMyInvitationResponses" resultType="com.jiayuan.boot.system.team.model.vo.InvitationResponseVO">
+        SELECT <include refid="InvitationResponseColumns"/>
+        FROM team_invitation ti
+        LEFT JOIN team_space ts ON ti.team_id = ts.id AND ts.is_deleted = 0
+        LEFT JOIN sys_user inviter ON ti.inviter_id = inviter.id AND inviter.is_deleted = 0
+        LEFT JOIN sys_account inviter_account ON ti.inviter_account_id = inviter_account.id AND inviter_account.status = 1 AND inviter_account.is_deleted = 0
+        LEFT JOIN sys_user invitee ON ti.invitee_id = invitee.id AND invitee.is_deleted = 0
+        LEFT JOIN sys_account invitee_account ON ti.invitee_account_id = invitee_account.id AND invitee_account.status = 1 AND invitee_account.is_deleted = 0
+        WHERE ti.invitee_account_id = #{inviteeAccountId}
+        AND ti.is_deleted = 0
+        <if test="status != null">
+            AND ti.status = #{status}
+        </if>
+        ORDER BY ti.create_time DESC, ti.id DESC
+    </select>
+
+    <!-- 同步标记账户收到的已过期待处理邀请 -->
+    <update id="expirePendingInvitationsByInviteeAccount">
+        UPDATE team_invitation
+        SET status = #{expiredStatus},
+            reason = #{reason},
+            update_time = NOW()
+        WHERE invitee_account_id = #{inviteeAccountId}
+        AND status = #{pendingStatus}
+        AND expire_at IS NOT NULL
+        AND expire_at &lt;= #{now}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 查询单个邀请响应 -->
+    <select id="selectInvitationResponseById" resultType="com.jiayuan.boot.system.team.model.vo.InvitationResponseVO">
+        SELECT <include refid="InvitationResponseColumns"/>
+        FROM team_invitation ti
+        LEFT JOIN team_space ts ON ti.team_id = ts.id AND ts.is_deleted = 0
+        LEFT JOIN sys_user inviter ON ti.inviter_id = inviter.id AND inviter.is_deleted = 0
+        LEFT JOIN sys_account inviter_account ON ti.inviter_account_id = inviter_account.id AND inviter_account.status = 1 AND inviter_account.is_deleted = 0
+        LEFT JOIN sys_user invitee ON ti.invitee_id = invitee.id AND invitee.is_deleted = 0
+        LEFT JOIN sys_account invitee_account ON ti.invitee_account_id = invitee_account.id AND invitee_account.status = 1 AND invitee_account.is_deleted = 0
+        WHERE ti.id = #{_parameter}
+        AND ti.is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询待处理邀请 -->
+    <select id="selectPendingInvitation" resultType="com.jiayuan.boot.system.team.model.entity.TeamInvitation">
+        SELECT * FROM team_invitation
+        WHERE id = #{invitationId}
+        AND team_id = #{teamId}
+        AND status = #{pendingStatus}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询团队待处理邀请 -->
+    <select id="selectPendingInvitationsByTeamId" resultType="com.jiayuan.boot.system.team.model.entity.TeamInvitation">
+        SELECT * FROM team_invitation
+        WHERE team_id = #{teamId}
+        AND status = #{pendingStatus}
+        AND is_deleted = 0
+        ORDER BY id ASC
+    </select>
+
+    <!-- 判断是否存在未过期待处理邀请 -->
+    <select id="existsActivePendingInvitation" resultType="boolean">
+        SELECT COUNT(1) > 0 FROM team_invitation
+        WHERE team_id = #{teamId}
+        AND invitee_account_id = #{inviteeAccountId}
+        AND status = #{pendingStatus}
+        AND expire_at > #{now}
+        AND is_deleted = 0
+    </select>
+
+    <!-- 判断账户是否为有效团队成员 -->
+    <select id="existsActiveMemberByAccount" resultType="boolean">
+        SELECT COUNT(1) > 0 FROM team_member
+        WHERE team_id = #{teamId}
+        AND account_id = #{accountId}
+        AND status = #{activeStatus}
+        AND is_deleted = 0
+    </select>
+
+    <!-- 原子更新待处理邀请状态 -->
+    <update id="updatePendingInvitationStatus">
+        UPDATE team_invitation
+        SET status = #{targetStatus},
+            reason = #{reason},
+            update_time = NOW()
+        WHERE id = #{id}
+        AND status = #{pendingStatus}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 更新 Flowable 流程实例ID -->
+    <update id="updateFlowableInstanceId">
+        UPDATE team_invitation
+        SET flowable_instance_id = #{flowableInstanceId},
+            update_time = NOW()
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+</mapper>

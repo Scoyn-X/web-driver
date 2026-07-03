@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/@jscpd/core/schema/jscpd.json",
+  "threshold": 3,
+  "reporters": ["console", "html"],
+  "output": "./report/jscpd",
+  "format": ["vue", "typescript", "javascript", "scss", "css"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/report/**",
+    "**/*.d.ts",
+    "**/*.svg",
+    "**/auto-imports.d.ts",
+    "**/components.d.ts",
+    "**/mock/**",
+    "src/api/**",
+    "src/types/**"
+  ],
+  "min-lines": 20,
+  "min-tokens": 60,
+  "absolute": true,
+  "gitignore": true
+}

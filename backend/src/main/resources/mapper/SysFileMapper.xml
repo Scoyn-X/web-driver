@@ -1,0 +1,929 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiayuan.boot.system.oss.mapper.SysFileMapper">
+
+    <sql id="SysFileColumnsWithoutFileSize">
+        ${alias}.id,
+        ${alias}.create_time,
+        ${alias}.update_time,
+        ${alias}.is_deleted,
+        ${alias}.original_name,
+        ${alias}.stored_name,
+        ${alias}.file_path,
+        ${alias}.file_url,
+        ${alias}.mime_type,
+        ${alias}.user_id,
+        ${alias}.space_type,
+        ${alias}.space_id,
+        ${alias}.uploader_id,
+        ${alias}.parent_id,
+        ${alias}.is_directory,
+        ${alias}.full_path,
+        ${alias}.file_hash,
+        ${alias}.in_recycle_bin,
+        ${alias}.recycle_root,
+        ${alias}.deleted_at,
+        ${alias}.deleted_by,
+        ${alias}.expire_at
+    </sql>
+
+    <sql id="RecursiveChildSizeSelect">
+        descendants AS (
+            SELECT f.id,
+                   f.parent_id,
+                   f.is_directory,
+                   f.file_size,
+                   child_nodes.id AS root_id,
+                   child_nodes.space_type AS root_space_type,
+                   child_nodes.space_id AS root_space_id
+            FROM sys_file f
+            INNER JOIN child_nodes
+                ON f.parent_id = child_nodes.id
+                AND f.space_type = child_nodes.space_type
+                AND f.space_id = child_nodes.space_id
+            WHERE f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id,
+                   f.parent_id,
+                   f.is_directory,
+                   f.file_size,
+                   descendants.root_id,
+                   descendants.root_space_type,
+                   descendants.root_space_id
+            FROM sys_file f
+            INNER JOIN descendants
+                ON f.parent_id = descendants.id
+                AND f.space_type = descendants.root_space_type
+                AND f.space_id = descendants.root_space_id
+            WHERE f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+        ),
+        directory_sizes AS (
+            SELECT root_id,
+                   COALESCE(SUM(CASE
+                       WHEN is_directory = 0 THEN COALESCE(file_size, 0)
+                       ELSE 0
+                   END), 0) AS total_size
+            FROM descendants
+            GROUP BY root_id
+        )
+        SELECT
+            <include refid="SysFileColumnsWithoutFileSize">
+                <property name="alias" value="child_nodes" />
+            </include>,
+            CASE WHEN child_nodes.is_directory = 1
+                THEN COALESCE(directory_sizes.total_size, 0)
+                ELSE child_nodes.file_size
+            END AS file_size
+        FROM child_nodes
+        LEFT JOIN directory_sizes ON directory_sizes.root_id = child_nodes.id
+        ORDER BY child_nodes.is_directory DESC, child_nodes.create_time DESC, child_nodes.id DESC
+    </sql>
+
+    <sql id="RecursiveSingleFileSizeSelect">
+        descendants AS (
+            SELECT f.id,
+                   f.parent_id,
+                   f.is_directory,
+                   f.file_size,
+                   target_node.id AS root_id,
+                   target_node.space_type AS root_space_type,
+                   target_node.space_id AS root_space_id
+            FROM sys_file f
+            INNER JOIN target_node
+                ON f.parent_id = target_node.id
+                AND f.space_type = target_node.space_type
+                AND f.space_id = target_node.space_id
+            WHERE f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id,
+                   f.parent_id,
+                   f.is_directory,
+                   f.file_size,
+                   descendants.root_id,
+                   descendants.root_space_type,
+                   descendants.root_space_id
+            FROM sys_file f
+            INNER JOIN descendants
+                ON f.parent_id = descendants.id
+                AND f.space_type = descendants.root_space_type
+                AND f.space_id = descendants.root_space_id
+            WHERE f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+        ),
+        directory_sizes AS (
+            SELECT root_id,
+                   COALESCE(SUM(CASE
+                       WHEN is_directory = 0 THEN COALESCE(file_size, 0)
+                       ELSE 0
+                   END), 0) AS total_size
+            FROM descendants
+            GROUP BY root_id
+        )
+        SELECT
+            <include refid="SysFileColumnsWithoutFileSize">
+                <property name="alias" value="target_node" />
+            </include>,
+            CASE WHEN target_node.is_directory = 1
+                THEN COALESCE(directory_sizes.total_size, 0)
+                ELSE target_node.file_size
+            END AS file_size
+        FROM target_node
+        LEFT JOIN directory_sizes ON directory_sizes.root_id = target_node.id
+        LIMIT 1
+    </sql>
+
+    <!-- 递归 CTE：一次查询获取根节点下的所有后代（不含根节点自身） -->
+    <select id="selectAllDescendants" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE descendants AS (
+            SELECT * FROM sys_file
+            WHERE id = #{rootId} AND is_deleted = 0
+            UNION ALL
+            SELECT f.* FROM sys_file f
+            INNER JOIN descendants d ON f.parent_id = d.id
+            WHERE f.is_deleted = 0
+        )
+        SELECT * FROM descendants WHERE id != #{rootId}
+    </select>
+
+    <!-- 递归 CTE：移动目录时一次性更新所有后代的 full_path -->
+    <update id="updateDescendantsFullPath">
+        WITH RECURSIVE descendants AS (
+            SELECT f.id, CONCAT(#{parentFullPath}, ',', f.id) AS new_full_path
+            FROM sys_file f
+            WHERE f.parent_id = #{rootId} AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id, CONCAT(d.new_full_path, ',', f.id)
+            FROM sys_file f
+            INNER JOIN descendants d ON f.parent_id = d.id
+            WHERE f.is_deleted = 0
+        )
+        UPDATE sys_file s
+        INNER JOIN descendants d ON s.id = d.id
+        SET s.full_path = d.new_full_path
+    </update>
+
+    <!-- 列出指定父目录下的子目录（排除回收站，按名称排序） -->
+    <select id="selectChildDirectories" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND parent_id = #{parentId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY original_name ASC
+    </select>
+
+    <!-- 列出当前用户所有未回收的目录（仅含id/名称/父目录ID） -->
+    <select id="selectDirectoriesForTree" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT id, original_name, parent_id FROM sys_file
+        WHERE user_id = #{userId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+    </select>
+
+    <!-- 按关键词搜索当前用户的文件（不包含回收站） -->
+    <select id="searchFilesByKeyword" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND is_directory = 0
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        AND original_name LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 列出当前用户回收站的根节点（仅回收站根记录，按更新时间倒序） -->
+    <select id="selectRecycleBinRoots" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND in_recycle_bin = 1
+        AND recycle_root = 1
+        AND is_deleted = 0
+        ORDER BY deleted_at DESC, id DESC
+    </select>
+
+    <!-- 校验同一父目录下是否已存在同名文件/目录（排除回收站） -->
+    <select id="existsByNameInDirectory" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM sys_file
+        WHERE user_id = #{userId}
+        AND parent_id = #{parentId}
+        AND original_name = #{name}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+    </select>
+
+    <!-- 批量获取包含子目录的父目录ID -->
+    <select id="selectParentIdsHavingChildDirectory" resultType="long">
+        SELECT DISTINCT parent_id FROM sys_file
+        WHERE user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{userId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        AND parent_id IN
+        <foreach collection="parentIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <!-- 获取父目录下所有匹配前缀的文件名（用于同名自动序号） -->
+    <select id="selectNamesInDirectory" resultType="string">
+        SELECT original_name FROM sys_file
+        WHERE user_id = #{userId}
+        AND parent_id = #{parentId}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        <if test="prefix != null">
+            AND original_name LIKE CONCAT(#{prefix}, '%')
+        </if>
+    </select>
+
+    <!-- 查询团队候选父目录中含有子目录的目录ID -->
+    <select id="selectTeamParentIdsHavingChildDirectory" resultType="long">
+        SELECT DISTINCT parent_id FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{teamId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        AND parent_id IN
+        <foreach collection="parentIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 查询个人目录下的子目录 -->
+    <select id="selectPersonalDirectories" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{userId}
+        AND parent_id = #{parentId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY original_name ASC
+    </select>
+
+    <!-- 查询个人活动目录树 -->
+    <select id="selectPersonalDirectoryTree" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT id, original_name, parent_id FROM sys_file
+        WHERE user_id = #{_parameter}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{_parameter}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+    </select>
+
+    <!-- 搜索个人空间活动文件 -->
+    <select id="searchPersonalFiles" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{userId}
+        AND is_directory = 0
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        AND original_name LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 查询个人回收站根节点 -->
+    <select id="selectPersonalTrashRoots" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{_parameter}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{_parameter}
+        AND in_recycle_bin = 1
+        AND recycle_root = 1
+        AND is_deleted = 0
+        ORDER BY deleted_at DESC, id DESC
+    </select>
+
+    <!-- 查询团队目录下的文件和子目录 -->
+    <select id="selectTeamChildren" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE child_nodes AS (
+            SELECT * FROM sys_file
+            WHERE space_type = 'TEAM'
+            AND space_id = #{teamId}
+            AND parent_id = #{parentId}
+            AND in_recycle_bin = 0
+            AND is_deleted = 0
+        ),
+        <include refid="RecursiveChildSizeSelect" />
+    </select>
+
+    <!-- 查询团队目录下的子目录 -->
+    <select id="selectTeamDirectories" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{teamId}
+        AND parent_id = #{parentId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 查询团队文件或目录 -->
+    <select id="selectTeamFile" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE id = #{fileId}
+        AND space_type = 'TEAM'
+        AND space_id = #{teamId}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询个人空间文件或目录 -->
+    <select id="selectPersonalFile" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE id = #{fileId}
+        AND user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{userId}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询可通过个人分享入口分享的个人文件或目录 -->
+    <select id="selectPersonalShareFile" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE id = #{fileId}
+        AND user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 批量查询个人分享关联的个人文件或目录 -->
+    <select id="selectPersonalShareFilesByIds" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND is_deleted = 0
+        AND id IN
+        <foreach collection="fileIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 查询个人目录下的文件和子目录 -->
+    <select id="selectPersonalChildren" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE child_nodes AS (
+            SELECT * FROM sys_file
+            WHERE user_id = #{userId}
+            AND space_type = 'PERSONAL'
+            AND space_id = #{userId}
+            AND parent_id = #{parentId}
+            AND in_recycle_bin = 0
+            AND is_deleted = 0
+        ),
+        <include refid="RecursiveChildSizeSelect" />
+    </select>
+
+    <!-- 查询个人空间活动文件树 -->
+    <select id="selectPersonalActiveTree" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{_parameter}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{_parameter}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY parent_id ASC, is_directory DESC, id ASC
+    </select>
+
+    <!-- 根据对象路径查询个人空间活动文件 -->
+    <select id="selectPersonalActiveByPath" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{userId}
+        AND file_path = #{filePath}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 校验团队目录下是否存在同名文件或目录 -->
+    <select id="existsTeamNameInDirectory" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{teamId}
+        AND parent_id = #{parentId}
+        AND original_name = #{name}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+    </select>
+
+    <!-- 查询团队目录下的同名活动文件或目录 -->
+    <select id="selectTeamActiveByNameInDirectory" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{teamId}
+        AND parent_id = #{parentId}
+        AND original_name = #{name}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 查询个人目录下的同名活动文件或目录 -->
+    <select id="selectPersonalActiveByNameInDirectory" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE user_id = #{userId}
+        AND space_type = 'PERSONAL'
+        AND space_id = #{userId}
+        AND parent_id = #{parentId}
+        AND original_name = #{name}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 查询指定空间内的一组文件或目录 -->
+    <select id="selectFilesInSpaceByIds" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND is_deleted = 0
+        AND id IN
+        <foreach collection="fileIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 获取团队目录下所有匹配前缀的文件名 -->
+    <select id="selectTeamNamesInDirectory" resultType="string">
+        SELECT original_name FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{teamId}
+        AND parent_id = #{parentId}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        <if test="prefix != null">
+            AND original_name LIKE CONCAT(#{prefix}, '%')
+        </if>
+    </select>
+
+    <!-- 搜索团队文件和目录 -->
+    <select id="searchTeamFiles" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{teamId}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        AND original_name LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!-- 查询团队活动文件树 -->
+    <select id="selectTeamActiveTree" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{_parameter}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY parent_id ASC, is_directory DESC, id ASC
+    </select>
+
+    <!-- 查询团队回收站根节点 -->
+    <select id="selectTeamTrashRoots" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = 'TEAM'
+        AND space_id = #{_parameter}
+        AND in_recycle_bin = 1
+        AND recycle_root = 1
+        AND is_deleted = 0
+        ORDER BY deleted_at DESC, id DESC
+    </select>
+
+    <!-- 查询指定空间和父目录下的活动子节点 -->
+    <select id="selectChildrenInSpace" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE child_nodes AS (
+            SELECT * FROM sys_file
+            WHERE space_type = #{spaceType}
+            AND space_id = #{spaceId}
+            AND parent_id = #{parentId}
+            AND in_recycle_bin = 0
+            AND is_deleted = 0
+        ),
+        <include refid="RecursiveChildSizeSelect" />
+    </select>
+
+    <!-- 查询指定空间目录下的同名活动文件或目录 -->
+    <select id="selectActiveByNameInSpaceDirectory" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND parent_id = #{parentId}
+        AND original_name = #{name}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 查询指定空间目录下的活动子目录 -->
+    <select id="selectDirectoriesInSpace" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND parent_id = #{parentId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        ORDER BY original_name ASC, id ASC
+    </select>
+
+    <!-- 查询指定空间候选父目录中含有活动子目录的目录ID -->
+    <select id="selectParentIdsHavingChildDirectoryInSpace" resultType="long">
+        SELECT DISTINCT parent_id FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND is_directory = 1
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        AND parent_id IN
+        <foreach collection="parentIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 查询分享根目录内的活动目录，防止匿名 parentId 越界 -->
+    <select id="selectActiveDirectoryInSharedTree" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE shared_tree AS (
+            SELECT * FROM sys_file
+            WHERE id = #{rootId}
+            AND space_type = #{spaceType}
+            AND space_id = #{spaceId}
+            AND is_directory = 1
+            AND in_recycle_bin = 0
+            AND is_deleted = 0
+            UNION ALL
+            SELECT f.* FROM sys_file f
+            INNER JOIN shared_tree t ON f.parent_id = t.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.is_directory = 1
+            AND f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+        )
+        SELECT * FROM shared_tree
+        WHERE id = #{directoryId}
+        LIMIT 1
+    </select>
+
+    <!-- 锁定指定空间目录下的活动子节点 -->
+    <select id="lockActiveChildrenInSpace" resultType="long">
+        SELECT id FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND parent_id = #{parentId}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        FOR UPDATE
+    </select>
+
+    <!-- 更新指定空间根节点位置 -->
+    <update id="updateRootLocationInSpace">
+        UPDATE sys_file
+        SET parent_id = #{parentId},
+            full_path = #{fullPath}
+        WHERE id = #{rootId}
+        AND space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 查询指定空间文件或目录 -->
+    <select id="selectSpaceFile" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE id = #{fileId}
+        AND space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询指定空间文件或目录；目录返回递归汇总后的后代文件大小 -->
+    <select id="selectSpaceFileWithRecursiveSize" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE target_node AS (
+            SELECT * FROM sys_file
+            WHERE id = #{fileId}
+            AND space_type = #{spaceType}
+            AND space_id = #{spaceId}
+            AND in_recycle_bin = 0
+            AND is_deleted = 0
+        ),
+        <include refid="RecursiveSingleFileSizeSelect" />
+    </select>
+
+    <!-- 查询指定空间内所有未逻辑删除文件或目录 -->
+    <select id="selectFilesInSpace" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND is_deleted = 0
+        ORDER BY id
+    </select>
+
+    <!-- 查询指定空间根节点下的所有后代 -->
+    <select id="selectDescendantsInSpace" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE descendants AS (
+            SELECT * FROM sys_file
+            WHERE id = #{rootId}
+            AND space_type = #{spaceType}
+            AND space_id = #{spaceId}
+            AND is_deleted = 0
+            UNION ALL
+            SELECT f.* FROM sys_file f
+            INNER JOIN descendants d ON f.parent_id = d.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND (
+                COALESCE(d.in_recycle_bin, 0) = 0
+                OR (f.in_recycle_bin = 1 AND COALESCE(f.recycle_root, 0) = 0)
+            )
+            AND f.is_deleted = 0
+        )
+        SELECT * FROM descendants WHERE id != #{rootId}
+    </select>
+
+    <!-- 查询指定空间根节点下的活动后代 -->
+    <select id="selectActiveDescendantsInSpace" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        WITH RECURSIVE descendants AS (
+            SELECT * FROM sys_file
+            WHERE id = #{rootId}
+            AND space_type = #{spaceType}
+            AND space_id = #{spaceId}
+            AND in_recycle_bin = 0
+            AND is_deleted = 0
+            UNION ALL
+            SELECT f.* FROM sys_file f
+            INNER JOIN descendants d ON f.parent_id = d.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+        )
+        SELECT * FROM descendants WHERE id != #{rootId}
+    </select>
+
+    <!-- 更新指定空间内目录后代的 full_path -->
+    <update id="updateDescendantsFullPathInSpace">
+        WITH RECURSIVE descendants AS (
+            SELECT f.id, CONCAT(#{parentFullPath}, ',', f.id) AS new_full_path
+            FROM sys_file f
+            WHERE f.parent_id = #{rootId}
+            AND f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id, CONCAT(d.new_full_path, ',', f.id)
+            FROM sys_file f
+            INNER JOIN descendants d ON f.parent_id = d.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.is_deleted = 0
+        )
+        UPDATE sys_file s
+        INNER JOIN descendants d ON s.id = d.id
+        SET s.full_path = d.new_full_path
+    </update>
+
+    <!-- 标记指定空间目录所有后代为非根回收站节点 -->
+    <update id="updateDescendantsRecycleStateInSpace">
+        WITH RECURSIVE descendants AS (
+            SELECT f.id FROM sys_file f
+            WHERE f.parent_id = #{rootId}
+            AND f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id FROM sys_file f
+            INNER JOIN descendants d ON f.parent_id = d.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+        )
+        UPDATE sys_file s
+        INNER JOIN descendants d ON s.id = d.id
+        SET s.in_recycle_bin = 1,
+            s.recycle_root = 0,
+            s.deleted_at = NOW(),
+            s.expire_at = DATE_ADD(NOW(), INTERVAL #{retentionSeconds} SECOND)
+    </update>
+
+    <!-- 按指定时间标记指定空间目录所有后代为非根回收站节点 -->
+    <update id="updateDescendantsRecycleStateInSpaceWithExpireAt">
+        WITH RECURSIVE descendants AS (
+            SELECT f.id FROM sys_file f
+            WHERE f.parent_id = #{rootId}
+            AND f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id FROM sys_file f
+            INNER JOIN descendants d ON f.parent_id = d.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 0
+            AND f.is_deleted = 0
+        )
+        UPDATE sys_file s
+        INNER JOIN descendants d ON s.id = d.id
+        SET s.in_recycle_bin = 1,
+            s.recycle_root = 0,
+            s.deleted_at = #{deletedAt},
+            s.expire_at = #{expireAt}
+    </update>
+
+    <!-- 标记指定空间文件或目录为回收站根节点 -->
+    <update id="moveRootToTrashInSpace">
+        UPDATE sys_file
+        SET in_recycle_bin = 1,
+            recycle_root = 1,
+            deleted_at = NOW(),
+            expire_at = DATE_ADD(NOW(), INTERVAL #{retentionSeconds} SECOND),
+            deleted_by = #{deletedBy},
+            update_time = NOW()
+        WHERE id = #{rootId}
+        AND space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+    </update>
+
+    <!-- 按指定时间标记指定空间文件或目录为回收站根节点 -->
+    <update id="moveRootToTrashInSpaceWithExpireAt">
+        UPDATE sys_file
+        SET in_recycle_bin = 1,
+            recycle_root = 1,
+            deleted_at = #{deletedAt},
+            expire_at = #{expireAt},
+            deleted_by = #{deletedBy},
+            update_time = #{deletedAt}
+        WHERE id = #{rootId}
+        AND space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+    </update>
+
+    <!-- 递归恢复指定空间的回收站根节点及后代 -->
+    <update id="restoreTrashTreeInSpace">
+        WITH RECURSIVE restored AS (
+            SELECT f.id,
+                   CASE
+                       WHEN #{parentFullPath} IS NULL OR #{parentFullPath} = '' THEN CAST(f.id AS CHAR(1000))
+                       ELSE CONCAT(#{parentFullPath}, ',', f.id)
+                   END AS new_full_path
+            FROM sys_file f
+            WHERE f.id = #{rootId}
+            AND f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 1
+            AND f.recycle_root = 1
+            AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id, CONCAT(r.new_full_path, ',', f.id)
+            FROM sys_file f
+            INNER JOIN restored r ON f.parent_id = r.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 1
+            AND f.recycle_root = 0
+            AND f.is_deleted = 0
+        )
+        UPDATE sys_file s
+        INNER JOIN restored r ON s.id = r.id
+        SET s.in_recycle_bin = 0,
+            s.recycle_root = 0,
+            s.deleted_at = NULL,
+            s.expire_at = NULL,
+            s.deleted_by = NULL,
+            s.full_path = r.new_full_path,
+            s.parent_id = CASE WHEN s.id = #{rootId} THEN #{parentId} ELSE s.parent_id END,
+            s.original_name = CASE WHEN s.id = #{rootId} THEN #{rootName} ELSE s.original_name END
+    </update>
+
+    <!-- 递归逻辑删除指定空间的回收站根节点及后代 -->
+    <update id="permanentlyDeleteTrashTreeInSpace">
+        WITH RECURSIVE deleted_tree AS (
+            SELECT f.id FROM sys_file f
+            WHERE f.id = #{rootId}
+            AND f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 1
+            AND f.recycle_root = 1
+            AND f.is_deleted = 0
+            UNION ALL
+            SELECT f.id FROM sys_file f
+            INNER JOIN deleted_tree d ON f.parent_id = d.id
+            WHERE f.space_type = #{spaceType}
+            AND f.space_id = #{spaceId}
+            AND f.in_recycle_bin = 1
+            AND f.recycle_root = 0
+            AND f.is_deleted = 0
+        )
+        UPDATE sys_file s
+        INNER JOIN deleted_tree d ON s.id = d.id
+        SET s.is_deleted = 1,
+            s.update_time = NOW()
+    </update>
+
+    <!-- 逻辑删除指定空间内所有文件或目录 -->
+    <update id="permanentlyDeleteSpaceFiles">
+        UPDATE sys_file
+        SET is_deleted = 1,
+            update_time = NOW()
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 校验指定空间目录下是否存在同名活动文件 -->
+    <select id="existsNameInSpaceDirectory" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND parent_id = #{parentId}
+        AND original_name = #{name}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+    </select>
+
+    <!-- 查询指定空间目录下匹配前缀的活动文件名 -->
+    <select id="selectNamesInSpaceDirectory" resultType="string">
+        SELECT original_name FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND parent_id = #{parentId}
+        AND in_recycle_bin = 0
+        AND is_deleted = 0
+        <if test="prefix != null">
+            AND original_name LIKE CONCAT(#{prefix}, '%')
+        </if>
+    </select>
+
+    <!-- 查询指定空间回收站根节点 -->
+    <select id="selectTrashRootsInSpace" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE space_type = #{spaceType}
+        AND space_id = #{spaceId}
+        AND in_recycle_bin = 1
+        AND recycle_root = 1
+        AND is_deleted = 0
+        ORDER BY deleted_at DESC, id DESC
+    </select>
+
+    <!-- 查询已到期的回收站根节点 -->
+    <select id="selectExpiredTrashRoots" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT * FROM sys_file
+        WHERE in_recycle_bin = 1
+        AND recycle_root = 1
+        AND is_deleted = 0
+        AND expire_at IS NOT NULL
+        AND expire_at &lt;= #{now}
+        ORDER BY expire_at ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查询宽限期已到期且仍有活动文件的私密空间根节点 -->
+    <select id="selectExpiredPrivateGraceRoots" resultType="com.jiayuan.boot.system.oss.model.entity.SysFile">
+        SELECT f.* FROM sys_file f
+        INNER JOIN private_space ps ON ps.user_id = f.space_id
+        INNER JOIN user_quota uq ON uq.user_id = ps.user_id
+        WHERE f.space_type = 'PRIVATE'
+        AND f.parent_id = 0
+        AND f.in_recycle_bin = 0
+        AND f.is_deleted = 0
+        AND ps.is_deleted = 0
+        AND ps.password_hash IS NOT NULL
+        AND ps.password_hash != ''
+        AND ps.grace_expire_at IS NOT NULL
+        AND ps.grace_expire_at &lt;= #{now}
+        AND uq.total_quota != #{vipQuota}
+        ORDER BY ps.grace_expire_at ASC, f.id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updateRecycleBinExpireAt">
+        UPDATE sys_file
+        SET expire_at = DATE_ADD(deleted_at, INTERVAL #{retentionSeconds} SECOND)
+        WHERE in_recycle_bin = 1
+        AND deleted_at IS NOT NULL
+        AND is_deleted = 0
+    </update>
+
+</mapper>

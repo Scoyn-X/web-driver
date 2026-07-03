@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiayuan.boot.system.oss.mapper.SysFileObjectMapper">
+
+    <!-- 引用计数加一 -->
+    <update id="increaseReference">
+        UPDATE sys_file_object
+        SET ref_count = ref_count + 1
+        WHERE file_hash = #{_parameter}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 共享引用计数减一；最后一个引用由 deleteIfLastReference 处理 -->
+    <update id="decreaseReferenceIfShared">
+        UPDATE sys_file_object
+        SET ref_count = ref_count - 1
+        WHERE file_hash = #{_parameter}
+        AND ref_count > 1
+        AND is_deleted = 0
+    </update>
+
+    <!-- 物理删除最后一个引用记录，让同 hash 文件未来可重新入库 -->
+    <delete id="deleteIfLastReference">
+        DELETE FROM sys_file_object
+        WHERE file_hash = #{_parameter}
+        AND ref_count = 1
+        AND is_deleted = 0
+    </delete>
+
+</mapper>

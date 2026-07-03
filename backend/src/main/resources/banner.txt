@@ -1,0 +1,6 @@
+${AnsiColor.BRIGHT_BLUE} 
+
+${AnsiColor.BRIGHT_GREEN}
+YouLai Boot Version: ${project.version}
+Spring Boot Version: ${spring-boot.version}${spring-boot.formatted-version}
+${AnsiColor.BRIGHT_BLUE}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiayuan.boot.system.quota.mapper.UserQuotaMapper">
+
+    <!-- 原子增加用户已用空间；VIP 无限配额允许超过普通额度 -->
+    <update id="increaseUsedSpace">
+        UPDATE user_quota
+        SET used_space = used_space + #{size}
+        WHERE user_id = #{userId}
+        AND (
+            total_quota = 9223372036854775807
+            OR used_space + #{size} &lt;= total_quota
+        )
+    </update>
+
+    <!-- 原子归还用户已用空间，最小归零 -->
+    <update id="decreaseUsedSpace">
+        UPDATE user_quota
+        SET used_space = GREATEST(used_space - #{size}, 0)
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 重置所有非 VIP 普通用户的总配额（VIP 用户 total_quota = Long.MAX_VALUE，不更新） -->
+    <update id="resetNormalUserQuota">
+        UPDATE user_quota
+        SET total_quota = #{newQuota}
+        WHERE total_quota != 9223372036854775807
+    </update>
+
+</mapper>

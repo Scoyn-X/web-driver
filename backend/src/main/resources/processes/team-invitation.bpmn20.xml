@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+             targetNamespace="http://jiayuan.com/process">
+    <process id="teamInvitationProcess" name="团队邀请流程" isExecutable="true">
+        <startEvent id="startEvent" name="发起邀请"/>
+        <sequenceFlow id="flowStartToApproval" sourceRef="startEvent" targetRef="inviteeApprovalTask"/>
+
+        <userTask id="inviteeApprovalTask" name="被邀请人审批" flowable:assignee="${inviteeAccountId}"/>
+        <boundaryEvent id="inviteTimeoutEvent" name="邀请过期" attachedToRef="inviteeApprovalTask" cancelActivity="true">
+            <timerEventDefinition>
+                <timeDuration>${expireDuration}</timeDuration>
+            </timerEventDefinition>
+        </boundaryEvent>
+
+        <sequenceFlow id="flowApprovalToGateway" sourceRef="inviteeApprovalTask" targetRef="decisionGateway"/>
+        <exclusiveGateway id="decisionGateway" name="邀请处理结果"/>
+
+        <sequenceFlow id="flowAccepted" sourceRef="decisionGateway" targetRef="acceptedEnd">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${decision == 'ACCEPT'}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowRejected" sourceRef="decisionGateway" targetRef="rejectedEnd">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${decision == 'REJECT'}]]></conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flowTimeoutToExpire" sourceRef="inviteTimeoutEvent" targetRef="expireInvitationTask"/>
+        <serviceTask id="expireInvitationTask" name="标记邀请过期" flowable:delegateExpression="${teamInvitationExpireDelegate}"/>
+        <sequenceFlow id="flowExpireToEnd" sourceRef="expireInvitationTask" targetRef="expiredEnd"/>
+
+        <endEvent id="acceptedEnd" name="邀请已接受"/>
+        <endEvent id="rejectedEnd" name="邀请已拒绝"/>
+        <endEvent id="expiredEnd" name="邀请已过期"/>
+    </process>
+<bpmndi:BPMNDiagram id="BPMNDiagram_teamInvitationProcess">
+    <bpmndi:BPMNPlane bpmnElement="teamInvitationProcess" id="BPMNPlane_teamInvitationProcess">
+      <bpmndi:BPMNShape id="Shape_startEvent" bpmnElement="startEvent">
+        <omgdc:Bounds x="100" y="182" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_inviteeApprovalTask" bpmnElement="inviteeApprovalTask">
+        <omgdc:Bounds x="190" y="160" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_inviteTimeoutEvent" bpmnElement="inviteTimeoutEvent">
+        <omgdc:Bounds x="232" y="222" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_decisionGateway" bpmnElement="decisionGateway" isMarkerVisible="true">
+        <omgdc:Bounds x="370" y="175" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_acceptedEnd" bpmnElement="acceptedEnd">
+        <omgdc:Bounds x="500" y="82" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_rejectedEnd" bpmnElement="rejectedEnd">
+        <omgdc:Bounds x="500" y="182" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_expireInvitationTask" bpmnElement="expireInvitationTask">
+        <omgdc:Bounds x="335" y="280" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_expiredEnd" bpmnElement="expiredEnd">
+        <omgdc:Bounds x="500" y="302" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_flowStartToApproval" bpmnElement="flowStartToApproval">
+        <omgdi:waypoint x="136" y="200" />
+        <omgdi:waypoint x="190" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_flowApprovalToGateway" bpmnElement="flowApprovalToGateway">
+        <omgdi:waypoint x="310" y="200" />
+        <omgdi:waypoint x="370" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_flowAccepted" bpmnElement="flowAccepted">
+        <omgdi:waypoint x="395" y="175" />
+        <omgdi:waypoint x="395" y="100" />
+        <omgdi:waypoint x="500" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_flowRejected" bpmnElement="flowRejected">
+        <omgdi:waypoint x="420" y="200" />
+        <omgdi:waypoint x="500" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_flowTimeoutToExpire" bpmnElement="flowTimeoutToExpire">
+        <omgdi:waypoint x="250" y="258" />
+        <omgdi:waypoint x="250" y="320" />
+        <omgdi:waypoint x="335" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_flowExpireToEnd" bpmnElement="flowExpireToEnd">
+        <omgdi:waypoint x="455" y="320" />
+        <omgdi:waypoint x="500" y="320" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>

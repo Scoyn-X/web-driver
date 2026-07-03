@@ -1,0 +1,6 @@
+/* 暗黑模式 CSS 变量覆盖 */
+html.dark {
+  .el-table {
+    --el-table-current-row-bg-color: var(--el-fill-color-light);
+  }
+}

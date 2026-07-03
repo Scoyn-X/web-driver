@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      href="/favicon.ico"
+      rel="icon"
+    />
+    <meta
+      content="width=device-width, initial-scale=1.0"
+      name="viewport"
+    />
+    <meta
+      content="vue,element-plus,typescript"
+      name="keywords"
+    />
+    <title>%VITE_APP_TITLE%</title>
+  </head>
+
+  <body>
+    <div id="app">
+      <div class="loading-container">
+        <div class="loading-spinner">
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script
+    src="/src/main.ts"
+    type="module"
+  ></script>
+
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      margin: 0;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 加载中时居中显示动画 */
+    #app:has(.loading-container) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-spinner {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+    }
+
+    .loading-bar {
+      width: 4px;
+      height: 24px;
+      background-color: #498cff;
+      border-radius: 2px;
+      animation: loading-animation 1.2s ease-in-out infinite;
+    }
+
+    .loading-bar:nth-child(1) {
+      animation-delay: 0s;
+    }
+
+    .loading-bar:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .loading-bar:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes loading-animation {
+      0% {
+        opacity: 0.3;
+        transform: scaleY(0.5);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scaleY(1.2);
+      }
+
+      100% {
+        opacity: 0.3;
+        transform: scaleY(0.5);
+      }
+    }
+  </style>
+</html>

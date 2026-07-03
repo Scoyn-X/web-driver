@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiayuan.boot.system.auth.mapper.SysUserMapper">
+
+    <!-- 查询用户主信息与主账户名 -->
+    <select id="selectUserBriefById" resultType="com.jiayuan.boot.system.user.model.bo.UserBriefBO">
+        SELECT
+            u.id AS userId,
+            a.id AS accountId,
+            a.account_name AS accountName,
+            u.nickname AS nickname,
+            u.email AS email
+        FROM sys_user u
+        LEFT JOIN sys_account a
+            ON a.user_id = u.id
+            AND a.status = 1
+            AND a.is_deleted = 0
+        WHERE u.id = #{_parameter}
+            AND u.status = 1
+            AND u.is_deleted = 0
+        ORDER BY a.id ASC
+        LIMIT 1
+    </select>
+
+    <!-- 根据账户ID查询用户主信息与账户名 -->
+    <select id="selectUserBriefByAccountId" resultType="com.jiayuan.boot.system.user.model.bo.UserBriefBO">
+        SELECT
+            u.id AS userId,
+            a.id AS accountId,
+            a.account_name AS accountName,
+            u.nickname AS nickname,
+            u.email AS email
+        FROM sys_account a
+        INNER JOIN sys_user u
+            ON u.id = a.user_id
+            AND u.status = 1
+            AND u.is_deleted = 0
+        WHERE a.id = #{_parameter}
+            AND a.status = 1
+            AND a.is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 搜索启用状态用户，供团队邀请选择 -->
+    <select id="selectActiveUserBriefs" resultType="com.jiayuan.boot.system.user.model.bo.UserBriefBO">
+        SELECT
+            u.id AS userId,
+            a.id AS accountId,
+            a.account_name AS accountName,
+            u.nickname AS nickname,
+            u.email AS email
+        FROM sys_user u
+        LEFT JOIN sys_account a
+            ON a.user_id = u.id
+            AND a.status = 1
+            AND a.is_deleted = 0
+        WHERE u.status = 1
+            AND u.is_deleted = 0
+            AND (
+                u.nickname LIKE CONCAT('%', #{_parameter}, '%')
+                OR u.email LIKE CONCAT('%', #{_parameter}, '%')
+                OR a.account_name LIKE CONCAT('%', #{_parameter}, '%')
+            )
+        ORDER BY u.id ASC
+        LIMIT 20
+    </select>
+
+    <!-- 批量查询用户基础信息（含主账户名） -->
+    <select id="selectUserBriefByIds" resultType="com.jiayuan.boot.system.user.model.bo.UserBriefBO">
+        SELECT
+            u.id AS userId,
+            a.id AS accountId,
+            a.account_name AS accountName,
+            u.nickname AS nickname,
+            u.email AS email
+        FROM sys_user u
+        LEFT JOIN sys_account a
+            ON a.user_id = u.id
+            AND a.status = 1
+            AND a.is_deleted = 0
+        WHERE u.id IN
+            <foreach collection="list" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            AND u.status = 1
+            AND u.is_deleted = 0
+        ORDER BY a.id ASC
+    </select>
+
+</mapper>

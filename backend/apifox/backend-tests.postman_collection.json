@@ -1,0 +1,954 @@
+{
+  "info": {
+    "name": "Lab2 后端接口自动化测试",
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-000000000001",
+    "description": "覆盖 Auth / Directory / File / RecycleBin / Quota / Visit 六大模块，含边界用例。导入 Apifox 后按文件夹顺序运行即完成一次回归。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8989"},
+    {"key": "tokenA", "value": ""},
+    {"key": "tokenB", "value": ""},
+    {"key": "userAId", "value": ""},
+    {"key": "userBId", "value": ""},
+    {"key": "randomSuffix", "value": ""},
+    {"key": "dirAId", "value": ""},
+    {"key": "dirBId", "value": ""},
+    {"key": "fileId", "value": ""},
+    {"key": "fileInDirId", "value": ""},
+    {"key": "teamId", "value": ""},
+    {"key": "teamTransferFileId", "value": ""},
+    {"key": "teamTrashRenameId", "value": ""},
+    {"key": "teamTrashOverwriteId", "value": ""},
+    {"key": "teamTrashDeleteId", "value": ""}
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// randomSuffix 在 01_Auth/注册用户A 的前置脚本中每轮强制刷新，此处不再兜底"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01_Auth 认证",
+      "item": [
+        {
+          "name": "注册用户A (happy)",
+          "event": [
+            {"listen":"prerequest","script":{"type":"text/javascript","exec":[
+              "// 每轮运行强制刷新 randomSuffix，所有依赖 {{randomSuffix}} 的用例（B 注册、目录、文件…）自动拿到新值",
+              "pm.collectionVariables.set('randomSuffix', Date.now().toString());"
+            ]}},
+            {"listen":"test","script":{"type":"text/javascript","exec":[
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+            ]}}
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/register","host":["{{baseUrl}}"],"path":["api","v1","auth","register"]},
+            "body": {"mode":"raw","raw":"{\n  \"nickname\": \"UserA\",\n  \"accountName\": \"userA_{{randomSuffix}}\",\n  \"password\": \"test1234\",\n  \"email\": \"userA_{{randomSuffix}}@example.com\",\n  \"accountType\": \"personal\"\n}"}
+          }
+        },
+        {
+          "name": "注册用户B (happy)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/register","host":["{{baseUrl}}"],"path":["api","v1","auth","register"]},
+            "body": {"mode":"raw","raw":"{\n  \"nickname\": \"UserB\",\n  \"accountName\": \"userB_{{randomSuffix}}\",\n  \"password\": \"test1234\",\n  \"email\": \"userB_{{randomSuffix}}@example.com\",\n  \"accountType\": \"personal\"\n}"}
+          }
+        },
+        {
+          "name": "注册-同名账户 (expect 失败)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000 (用户名已存在)', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/register","host":["{{baseUrl}}"],"path":["api","v1","auth","register"]},
+            "body": {"mode":"raw","raw":"{\n  \"nickname\": \"Dup\",\n  \"accountName\": \"userA_{{randomSuffix}}\",\n  \"password\": \"test1234\",\n  \"email\": \"dup_{{randomSuffix}}@example.com\",\n  \"accountType\": \"personal\"\n}"}
+          }
+        },
+        {
+          "name": "注册-邮箱格式非法 (expect 参数错)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/register","host":["{{baseUrl}}"],"path":["api","v1","auth","register"]},
+            "body": {"mode":"raw","raw":"{\n  \"nickname\": \"X\",\n  \"accountName\": \"bademail_{{randomSuffix}}\",\n  \"password\": \"test1234\",\n  \"email\": \"not-an-email\",\n  \"accountType\": \"personal\"\n}"}
+          }
+        },
+        {
+          "name": "注册-密码为空 (expect 参数错)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/register","host":["{{baseUrl}}"],"path":["api","v1","auth","register"]},
+            "body": {"mode":"raw","raw":"{\n  \"nickname\": \"X\",\n  \"accountName\": \"nopwd_{{randomSuffix}}\",\n  \"password\": \"\",\n  \"email\": \"nopwd_{{randomSuffix}}@example.com\",\n  \"accountType\": \"personal\"\n}"}
+          }
+        },
+        {
+          "name": "登录用户A (保存 tokenA)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('返回 token', () => pm.expect(j.data.token).to.be.a('string'));",
+            "pm.collectionVariables.set('tokenA', j.data.token);",
+            "pm.collectionVariables.set('userAId', j.data.userId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/login","host":["{{baseUrl}}"],"path":["api","v1","auth","login"]},
+            "body": {"mode":"raw","raw":"{\n  \"accountName\": \"userA_{{randomSuffix}}\",\n  \"password\": \"test1234\"\n}"}
+          }
+        },
+        {
+          "name": "登录用户B (保存 tokenB)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.collectionVariables.set('tokenB', j.data.token);",
+            "pm.collectionVariables.set('userBId', j.data.userId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/login","host":["{{baseUrl}}"],"path":["api","v1","auth","login"]},
+            "body": {"mode":"raw","raw":"{\n  \"accountName\": \"userB_{{randomSuffix}}\",\n  \"password\": \"test1234\"\n}"}
+          }
+        },
+        {
+          "name": "登录-密码错误 (expect 失败)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/login","host":["{{baseUrl}}"],"path":["api","v1","auth","login"]},
+            "body": {"mode":"raw","raw":"{\n  \"accountName\": \"userA_{{randomSuffix}}\",\n  \"password\": \"WRONG_PWD\"\n}"}
+          }
+        },
+        {
+          "name": "登录-账户不存在 (expect 失败)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/auth/login","host":["{{baseUrl}}"],"path":["api","v1","auth","login"]},
+            "body": {"mode":"raw","raw":"{\n  \"accountName\": \"ghost_{{randomSuffix}}\",\n  \"password\": \"anything\"\n}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "02_Quota 配额",
+      "item": [
+        {
+          "name": "获取配额 (A) - happy",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('含 usedSpace/totalQuota', () => { pm.expect(j.data).to.have.property('usedSpace'); pm.expect(j.data).to.have.property('totalQuota'); });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/quota","host":["{{baseUrl}}"],"path":["api","v1","quota"]}
+          }
+        },
+        {
+          "name": "获取配额-未登录 (expect 401/未授权)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('未登录被拒绝', () => { const c = pm.response.code; const t = pm.response.text() || ''; pm.expect(c === 401 || c === 403 || /A02|A03|未授权|Unauthorized|Forbidden/i.test(t)).to.be.true; });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": {"raw":"{{baseUrl}}/api/v1/quota","host":["{{baseUrl}}"],"path":["api","v1","quota"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "03_Directory 目录",
+      "item": [
+        {
+          "name": "创建根目录 A (happy)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.collectionVariables.set('dirAId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories","host":["{{baseUrl}}"],"path":["api","v1","directories"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"A_{{randomSuffix}}\",\n  \"parentId\": 0\n}"}
+          }
+        },
+        {
+          "name": "创建子目录 B (父=A)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.collectionVariables.set('dirBId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories","host":["{{baseUrl}}"],"path":["api","v1","directories"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"B_{{randomSuffix}}\",\n  \"parentId\": {{dirAId}}\n}"}
+          }
+        },
+        {
+          "name": "创建同名目录 (expect 重名失败)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories","host":["{{baseUrl}}"],"path":["api","v1","directories"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"A_{{randomSuffix}}\",\n  \"parentId\": 0\n}"}
+          }
+        },
+        {
+          "name": "创建-含非法字符../ (expect 400)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('参数校验失败', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories","host":["{{baseUrl}}"],"path":["api","v1","directories"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"../evil\",\n  \"parentId\": 0\n}"}
+          }
+        },
+        {
+          "name": "创建-空名 (expect 400)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories","host":["{{baseUrl}}"],"path":["api","v1","directories"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"\",\n  \"parentId\": 0\n}"}
+          }
+        },
+        {
+          "name": "创建-51字超长 (expect 400)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories","host":["{{baseUrl}}"],"path":["api","v1","directories"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n  \"parentId\": 0\n}"}
+          }
+        },
+        {
+          "name": "获取目录树",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories/tree","host":["{{baseUrl}}"],"path":["api","v1","directories","tree"]}
+          }
+        },
+        {
+          "name": "重命名目录 A",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories/{{dirAId}}/rename","host":["{{baseUrl}}"],"path":["api","v1","directories","{{dirAId}}","rename"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"A_renamed_{{randomSuffix}}\"\n}"}
+          }
+        },
+        {
+          "name": "用户B 删除 A 的目录 (expect 403/越权)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenB}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/directories/{{dirAId}}","host":["{{baseUrl}}"],"path":["api","v1","directories","{{dirAId}}"]}
+          }
+        },
+        {
+          "name": "移动 A 到其子 B (expect 循环检测失败)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/{{dirAId}}/move","host":["{{baseUrl}}"],"path":["api","v1","files","{{dirAId}}","move"]},
+            "body": {"mode":"raw","raw":"{\n  \"targetDirectoryId\": {{dirBId}}\n}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "04_File 文件",
+      "item": [
+        {
+          "name": "上传文件到根 (happy; 保存 fileId)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.collectionVariables.set('fileId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files","host":["{{baseUrl}}"],"path":["api","v1","files"]},
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {"key":"file","type":"file","src":"","description":"导入后请在 Apifox 中选择任意本地文件"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "上传同名文件 (expect 自动改名, 两次 id 不同)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('自动改名产生新 id', () => pm.expect(String(j.data.id)).to.not.eql(pm.collectionVariables.get('fileId')));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files","host":["{{baseUrl}}"],"path":["api","v1","files"]},
+            "body": {"mode":"formdata","formdata":[{"key":"file","type":"file","src":""}]}
+          }
+        },
+        {
+          "name": "上传到目录 B (保存 fileInDirId)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.collectionVariables.set('fileInDirId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files?parentId={{dirBId}}","host":["{{baseUrl}}"],"path":["api","v1","files"],"query":[{"key":"parentId","value":"{{dirBId}}"}]},
+            "body": {"mode":"formdata","formdata":[{"key":"file","type":"file","src":""}]}
+          }
+        },
+        {
+          "name": "上传-未登录 (expect 401)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('未授权', () => { const c = pm.response.code; const t = pm.response.text() || ''; pm.expect(c === 401 || c === 403 || /A02|A03|未授权|Unauthorized|Forbidden/i.test(t)).to.be.true; });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "url": {"raw":"{{baseUrl}}/api/v1/files","host":["{{baseUrl}}"],"path":["api","v1","files"]},
+            "body": {"mode":"formdata","formdata":[{"key":"file","type":"file","src":""}]}
+          }
+        },
+        {
+          "name": "文件树",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files","host":["{{baseUrl}}"],"path":["api","v1","files"]}
+          }
+        },
+        {
+          "name": "搜索-关键词",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));",
+            "pm.test('不含回收站项', () => { const arr = pm.response.json().data || []; arr.forEach(f => pm.expect(f.inRecycleBin).to.not.eql(1)); });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/search?keyword=.","host":["{{baseUrl}}"],"path":["api","v1","files","search"],"query":[{"key":"keyword","value":"."}]}
+          }
+        },
+        {
+          "name": "搜索-空串 (expect 空结果或 400)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('空串不应返回全量', () => { if (j.code === '00000') pm.expect(j.data || []).to.be.an('array').with.lengthOf(0); });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/search?keyword=","host":["{{baseUrl}}"],"path":["api","v1","files","search"],"query":[{"key":"keyword","value":""}]}
+          }
+        },
+        {
+          "name": "复制文件到目录 B",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"},{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/{{fileId}}/copy","host":["{{baseUrl}}"],"path":["api","v1","files","{{fileId}}","copy"]},
+            "body": {"mode":"raw","raw":"{\n  \"targetDirectoryId\": {{dirBId}}\n}"}
+          }
+        },
+        {
+          "name": "B 用户下载 A 的文件 (expect 越权)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('越权被拒 (非 2xx 或业务码 A03xx)', () => { const c = pm.response.code; const text = pm.response.text(); pm.expect(c < 200 || c >= 300 || /A03\\d\\d/.test(text)).to.be.true; });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenB}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/{{fileId}}/download","host":["{{baseUrl}}"],"path":["api","v1","files","{{fileId}}","download"]}
+          }
+        },
+        {
+          "name": "下载不存在的文件 id=99999999",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('资源不存在', () => pm.expect(pm.response.text()).to.match(/A06|不存在|error/i));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/99999999/download","host":["{{baseUrl}}"],"path":["api","v1","files","99999999","download"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "05_RecycleBin 回收站 (重点: bug 修复用例)",
+      "item": [
+        {
+          "name": "删除目录 B (含文件) → 入回收站",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/{{dirBId}}","host":["{{baseUrl}}"],"path":["api","v1","files","{{dirBId}}"]}
+          }
+        },
+        {
+          "name": "列回收站 → 仅应含 dirB（不展开子文件）",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "const dirBId = String(pm.collectionVariables.get('dirBId'));",
+            "const fileInDirId = String(pm.collectionVariables.get('fileInDirId'));",
+            "const ids = (j.data || []).map(x => String(x.id));",
+            "pm.test('含目录 B 根', () => pm.expect(ids).to.include(dirBId));",
+            "pm.test('不展开子文件 (fix bug)', () => pm.expect(ids).to.not.include(fileInDirId));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin"]}
+          }
+        },
+        {
+          "name": "尝试单独恢复子文件 (expect 400 '请对父目录执行恢复')",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code != 00000', () => pm.expect(j.code).to.not.eql('00000'));",
+            "pm.test('提示涉及父目录', () => pm.expect((j.msg||'')+'').to.match(/父目录|recycle|root/i));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin/{{fileInDirId}}/restore","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin","{{fileInDirId}}","restore"]}
+          }
+        },
+        {
+          "name": "尝试单独永久删子文件 (expect 400)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin/{{fileInDirId}}","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin","{{fileInDirId}}"]}
+          }
+        },
+        {
+          "name": "B 用户访问 A 的回收站项 (expect 403)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('越权被拒', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenB}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin/{{dirBId}}/restore","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin","{{dirBId}}","restore"]}
+          }
+        },
+        {
+          "name": "恢复根目录 B (连带子文件)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin/{{dirBId}}/restore","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin","{{dirBId}}","restore"]}
+          }
+        },
+        {
+          "name": "恢复后 回收站应为空 (A 的项)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('dirB 已不在回收站', () => { const ids = (j.data||[]).map(x=>String(x.id)); pm.expect(ids).to.not.include(String(pm.collectionVariables.get('dirBId'))); });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin"]}
+          }
+        },
+        {
+          "name": "再次删 B 并永久删除 (连带子文件)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/files/{{dirBId}}","host":["{{baseUrl}}"],"path":["api","v1","files","{{dirBId}}"]}
+          }
+        },
+        {
+          "name": "永久删除目录 B",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin/{{dirBId}}","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin","{{dirBId}}"]}
+          }
+        },
+        {
+          "name": "操作非回收站文件 id=fileId (未删除时直接调 restore expect 400)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code != 00000', () => pm.expect(pm.response.json().code).to.not.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/recycle-bin/{{fileId}}/restore","host":["{{baseUrl}}"],"path":["api","v1","recycle-bin","{{fileId}}","restore"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "06_TeamTrash 团队回收站",
+      "item": [
+        {
+          "name": "创建团队回收站测试团队",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('记录团队 id', () => pm.expect(j.data && j.data.id).to.exist);",
+            "pm.collectionVariables.set('teamId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TrashTeam{{randomSuffix}}\",\n  \"description\": \"B14b restore collection\"\n}"
+            },
+            "url": {"raw":"{{baseUrl}}/api/v1/team","host":["{{baseUrl}}"],"path":["api","v1","team"]}
+          }
+        },
+        {
+          "name": "创建 RENAME 源目录",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('记录 RENAME 回收站项 id', () => pm.expect(j.data && j.data.id).to.exist);",
+            "pm.collectionVariables.set('teamTrashRenameId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"restoreRename\",\n  \"parentId\": 0\n}"
+            },
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/directories","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","directories"]}
+          }
+        },
+        {
+          "name": "删除 RENAME 源目录",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/files/{{teamTrashRenameId}}","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","files","{{teamTrashRenameId}}"]}
+          }
+        },
+        {
+          "name": "创建 RENAME 同名冲突目录",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"restoreRename\",\n  \"parentId\": 0\n}"
+            },
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/directories","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","directories"]}
+          }
+        },
+        {
+          "name": "恢复团队回收站文件 (冲突未指定策略)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code!=00000', () => pm.expect(j.code).to.not.eql('00000'));",
+            "pm.test('返回冲突文件', () => pm.expect(j.data && j.data.id).to.exist);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {
+              "raw":"{{baseUrl}}/api/v1/team/{{teamId}}/trash/{{teamTrashRenameId}}/restore",
+              "host":["{{baseUrl}}"],
+              "path":["api","v1","team","{{teamId}}","trash","{{teamTrashRenameId}}","restore"]
+            }
+          }
+        },
+        {
+          "name": "恢复团队回收站文件 (RENAME)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('返回团队文件', () => pm.expect(j.data && j.data.id).to.exist);",
+            "if (j.data && j.data.id) pm.collectionVariables.set('teamTransferFileId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {
+              "raw":"{{baseUrl}}/api/v1/team/{{teamId}}/trash/{{teamTrashRenameId}}/restore?conflictPolicy=RENAME",
+              "host":["{{baseUrl}}"],
+              "path":["api","v1","team","{{teamId}}","trash","{{teamTrashRenameId}}","restore"],
+              "query":[{"key":"conflictPolicy","value":"RENAME"}]
+            }
+          }
+        },
+        {
+          "name": "创建 OVERWRITE 源目录",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('记录 OVERWRITE 回收站项 id', () => pm.expect(j.data && j.data.id).to.exist);",
+            "pm.collectionVariables.set('teamTrashOverwriteId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"restoreOverwrite\",\n  \"parentId\": 0\n}"
+            },
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/directories","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","directories"]}
+          }
+        },
+        {
+          "name": "删除 OVERWRITE 源目录",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/files/{{teamTrashOverwriteId}}","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","files","{{teamTrashOverwriteId}}"]}
+          }
+        },
+        {
+          "name": "创建 OVERWRITE 同名冲突目录",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"restoreOverwrite\",\n  \"parentId\": 0\n}"
+            },
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/directories","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","directories"]}
+          }
+        },
+        {
+          "name": "恢复团队回收站文件 (OVERWRITE)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('返回团队文件', () => pm.expect(j.data && j.data.id).to.exist);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {
+              "raw":"{{baseUrl}}/api/v1/team/{{teamId}}/trash/{{teamTrashOverwriteId}}/restore?conflictPolicy=OVERWRITE",
+              "host":["{{baseUrl}}"],
+              "path":["api","v1","team","{{teamId}}","trash","{{teamTrashOverwriteId}}","restore"],
+              "query":[{"key":"conflictPolicy","value":"OVERWRITE"}]
+            }
+          }
+        },
+        {
+          "name": "创建永久删除源目录",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('记录永久删除回收站项 id', () => pm.expect(j.data && j.data.id).to.exist);",
+            "pm.collectionVariables.set('teamTrashDeleteId', j.data.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"trashPermanentDelete\",\n  \"parentId\": 0\n}"
+            },
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/directories","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","directories"]}
+          }
+        },
+        {
+          "name": "删除永久删除源目录到团队回收站",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/files/{{teamTrashDeleteId}}","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","files","{{teamTrashDeleteId}}"]}
+          }
+        },
+        {
+          "name": "永久删除团队回收站文件",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{tokenA}}"}],
+            "url": {"raw":"{{baseUrl}}/api/v1/team/{{teamId}}/trash/{{teamTrashDeleteId}}","host":["{{baseUrl}}"],"path":["api","v1","team","{{teamId}}","trash","{{teamTrashDeleteId}}"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "06B_PersonalToTeam 个人转团队",
+      "item": [
+        {
+          "name": "转存个人文件到团队 (RENAME)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('返回团队文件', () => pm.expect(j.data && j.data.id).to.exist);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceFileId\": {{fileId}},\n  \"targetDirectoryId\": 0,\n  \"conflictPolicy\": \"RENAME\"\n}"
+            },
+            "url": {
+              "raw":"{{baseUrl}}/api/v1/team/{{teamId}}/files/from-personal",
+              "host":["{{baseUrl}}"],
+              "path":["api","v1","team","{{teamId}}","files","from-personal"]
+            }
+          }
+        },
+        {
+          "name": "转存个人文件到团队 (OVERWRITE 按自动重命名)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('返回团队文件', () => pm.expect(j.data && j.data.id).to.exist);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceFileId\": {{fileId}},\n  \"targetDirectoryId\": 0,\n  \"conflictPolicy\": \"OVERWRITE\"\n}"
+            },
+            "url": {
+              "raw":"{{baseUrl}}/api/v1/team/{{teamId}}/files/from-personal",
+              "host":["{{baseUrl}}"],
+              "path":["api","v1","team","{{teamId}}","files","from-personal"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06C_TeamToPersonal 团队转个人",
+      "item": [
+        {
+          "name": "转存团队文件到个人 (RENAME)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('返回个人文件', () => pm.expect(j.data && j.data.id).to.exist);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetDirectoryId\": 0,\n  \"conflictPolicy\": \"RENAME\"\n}"
+            },
+            "url": {
+              "raw":"{{baseUrl}}/api/v1/team/{{teamId}}/files/{{teamTransferFileId}}/save-to-personal",
+              "host":["{{baseUrl}}"],
+              "path":["api","v1","team","{{teamId}}","files","{{teamTransferFileId}}","save-to-personal"]
+            }
+          }
+        },
+        {
+          "name": "转存团队文件到个人 (OVERWRITE 按自动重命名)",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.test('返回个人文件', () => pm.expect(j.data && j.data.id).to.exist);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key":"Authorization","value":"Bearer {{tokenA}}"},
+              {"key":"Content-Type","value":"application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetDirectoryId\": 0,\n  \"conflictPolicy\": \"OVERWRITE\"\n}"
+            },
+            "url": {
+              "raw":"{{baseUrl}}/api/v1/team/{{teamId}}/files/{{teamTransferFileId}}/save-to-personal",
+              "host":["{{baseUrl}}"],
+              "path":["api","v1","team","{{teamId}}","files","{{teamTransferFileId}}","save-to-personal"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07_Visit 访问计数",
+      "item": [
+        {
+          "name": "获取初始计数",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('code=00000', () => pm.expect(j.code).to.eql('00000'));",
+            "pm.collectionVariables.set('visitBefore', j.data);"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": {"raw":"{{baseUrl}}/api/v1/visits","host":["{{baseUrl}}"],"path":["api","v1","visits"]}
+          }
+        },
+        {
+          "name": "增加一次",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "const j = pm.response.json();",
+            "pm.test('自增 1', () => pm.expect(j.data).to.eql(Number(pm.collectionVariables.get('visitBefore')) + 1));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "url": {"raw":"{{baseUrl}}/api/v1/visits","host":["{{baseUrl}}"],"path":["api","v1","visits"]}
+          }
+        },
+        {
+          "name": "重置",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('code=00000', () => pm.expect(pm.response.json().code).to.eql('00000'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "url": {"raw":"{{baseUrl}}/api/v1/visits","host":["{{baseUrl}}"],"path":["api","v1","visits"]}
+          }
+        },
+        {
+          "name": "重置后计数=0",
+          "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+            "pm.test('计数=0', () => pm.expect(pm.response.json().data).to.eql(0));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": {"raw":"{{baseUrl}}/api/v1/visits","host":["{{baseUrl}}"],"path":["api","v1","visits"]}
+          }
+        }
+      ]
+    }
+  ]
+}

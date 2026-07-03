@@ -1,0 +1,134 @@
+{
+  "output": {
+    "format": "eslint",
+    "colors": true
+  },
+  "scan": {
+    "include": ["src"],
+    "exclude": ["**/.git", "**/target"],
+    "ignoreFile": ".checkignore",
+    "mode": "full",
+    "incrementalBaseRef": "master"
+  },
+  "rules": {
+    "naming/vo-suffix": {
+      "enabled": true,
+      "description": "vo 包下的类名必须以 RequestVO 或 ResponseVO 结尾"
+    },
+    "naming/no-dto": {
+      "enabled": true,
+      "description": "类名中不允许出现 dto（统一使用 VO/BO 命名）"
+    },
+
+    "api/summary-length": {
+      "enabled": true,
+      "description": "@Operation summary 长度不能超过 maxLength 个字符",
+      "maxLength": 20
+    },
+    "api/summary-banned-word": {
+      "enabled": true,
+      "description": "@Operation summary 中不能出现违禁词",
+      "bannedWords": ["新增", "添加", "更新", "编辑", "更改", "彻底删除"]
+    },
+    "interface/id-naming": {
+      "enabled": true,
+      "description": "Controller 方法中的 ID 类参数命名必须使用 id 或 parentId",
+      "allowedNames": ["id", "parentId"]
+    },
+
+    "model/field-comment": {
+      "enabled": true,
+      "description": "vo / entity 包内的字段必须有注释或 @Schema"
+    },
+    "model/package-structure": {
+      "enabled": true,
+      "description": "model 包下只允许出现 vo / bo / enums / entity 子包，不允许独立 java 文件或其它子包",
+      "allowedSubPackages": ["vo", "bo", "enums", "entity"]
+    },
+    "vo/field-schema": {
+      "enabled": true,
+      "description": "vo 字段必须使用 @Schema 作为首个注解，且不允许出现裸注释"
+    },
+
+    "enum/base-enum": {
+      "enabled": true,
+      "description": "enums 包下的枚举必须实现 BaseEnum 接口"
+    },
+
+    "converter/single-param": {
+      "enabled": true,
+      "description": "Converter 方法的入参数量不允许超过 maxParameters",
+      "maxParameters": 4
+    },
+    "converter/name-format": {
+      "enabled": true,
+      "description": "Converter 公开方法的方法名必须以指定前缀开头",
+      "prefix": "to"
+    },
+
+    "vo/use-converter": {
+      "enabled": true,
+      "description": "Manual get/set mapping between VO/Entity in service package is disallowed; use a Converter instead (tests are exempt)."
+    },
+    "service/complex-lambda": {
+      "enabled": true,
+      "description": "service 中 LambdaWrapper 的链式调用长度不允许超过 maxWrapperChainLength，超过应拆分到 mapper XML",
+      "maxWrapperChainLength": 3
+    },
+    "service/interface-docs": {
+      "enabled": true,
+      "description": "service 包内的接口方法必须有 Javadoc，且参数 / 返回值 / 异常都要在 Javadoc 中声明"
+    },
+    "service/public-method-comment": {
+      "enabled": true,
+      "description": "service 包内的所有公开方法都必须有注释"
+    },
+
+    "mapper/no-inline-sql": {
+      "enabled": true,
+      "description": "Mapper classes must not contain inline SQL annotations (@Select/@Insert/@Update/@Delete); put SQL into mapper XML instead."
+    },
+    "mapper/short-query": {
+      "enabled": true,
+      "description": "Short single-table mapper XML select queries should be replaced with LambdaWrapper or built-in MyBatis-Plus methods",
+      "maxWhereConditions": 2
+    },
+    "naming/package-no-multi-word": {
+      "enabled": true,
+      "description": "Package segments must not contain underscores or multi-word separators (e.g. 'private_space')."
+    },
+    "model/entity-no-schema": {
+      "enabled": true,
+      "description": "Entity classes and fields must not use @Schema annotations; document via DTO/VO or DB schema instead."
+    },
+
+    "sql/file-naming": {
+      "enabled": true,
+      "description": "sql/mysql 目录下只允许出现初始化 SQL 与符合命名约定的迁移 SQL",
+      "allowedFiles": ["jiayuan_boot.sql"],
+      "allowedPatterns": ["migration_\\d{8}\\.sql"]
+    },
+
+    "duplication/block": {
+      "enabled": true,
+      "description": "检测连续 minLines 行（去除注释/包导入/纯括号噪声后）跨文件重复的代码块",
+      "minLines": 10
+    },
+
+    "size/file-length": {
+      "enabled": true,
+      "description": "单个 .java 文件的总行数不允许超过 maxLines",
+      "maxLines": 1000
+    },
+    "size/class-length": {
+      "enabled": true,
+      "description": "单个类 / 接口 / 枚举的源代码行数不允许超过 maxLines",
+      "maxLines": 300
+    },
+    "size/method-length": {
+      "enabled": true,
+      "description": "单个方法的源代码行数不允许超过 maxLines",
+      "maxLines": 100
+    }
+  }
+}

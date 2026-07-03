@@ -1,0 +1,95 @@
+# 测试环境配置文件
+# 使用独立测试数据库、独立 MinIO bucket、Redis database 1 与 dev 环境隔离
+
+server:
+  port: 0  # 随机端口
+
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/youlai_boot_test?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&autoReconnect=true&allowMultiQueries=true
+    username: root
+    password: 123456
+  data:
+    redis:
+      database: 1
+      host: localhost
+      port: 6379
+      password: 123456
+      timeout: 10s
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
+
+oss:
+  type: minio
+  minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket-name: jiayuan-boot-test
+
+jwt:
+  secret: myJwtSecretKey1234567890abcdefghij
+  expiration: 3600000  # 1 小时，远超过测试执行时间
+
+lab3:
+  retention:
+    cleanup-interval: 30s
+    private-grace-period: 72h
+    private-trash-retention: 72h
+    cleanup-batch-size: 100
+
+security:
+  permit-paths:
+    - /doc.html
+    - /swagger-ui.html
+    - /swagger-ui/**
+    - /v3/api-docs/**
+    - /webjars/**
+    - /actuator/**
+    - /api/v1/auth/**
+    - /api/v1/s/**
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  global-config:
+    db-config:
+      id-type: none
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+  default-flat-param-object: true
+  group-configs:
+    - group: "系统接口"
+      paths-to-match: "/**"
+      packages-to-scan:
+        - com.jiayuan.boot.system.admin.controller
+        - com.jiayuan.boot.system.counter.controller
+        - com.jiayuan.boot.system.oss.controller
+        - com.jiayuan.boot.system.auth.controller
+        - com.jiayuan.boot.system.quota.controller
+        - com.jiayuan.boot.system.share.controller
+        - com.jiayuan.boot.system.team.controller
+        - com.jiayuan.boot.system.user.controller
+        - com.jiayuan.boot.system.privatespace.controller
+
+knife4j:
+  enable: true
+  production: false
+  setting:
+    language: zh_cn

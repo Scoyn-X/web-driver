@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiayuan.boot.system.team.mapper.TeamMemberMapper">
+
+    <!-- 查询正常团队下的有效成员 -->
+    <select id="selectActiveMembersInActiveTeams" resultType="com.jiayuan.boot.system.team.model.entity.TeamMember">
+        SELECT tm.* FROM team_member tm
+        INNER JOIN team_space ts ON tm.team_id = ts.id
+        WHERE tm.status = 'ACTIVE'
+        AND tm.is_deleted = 0
+        AND tm.account_id IS NOT NULL
+        AND ts.status = 'ACTIVE'
+        AND ts.is_deleted = 0
+    </select>
+
+    <!-- 查询当前账户在团队中的有效成员记录 -->
+    <select id="selectActiveMemberByAccount" resultType="com.jiayuan.boot.system.team.model.entity.TeamMember">
+        SELECT * FROM team_member
+        WHERE team_id = #{teamId}
+        AND account_id = #{accountId}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询指定团队的有效成员 -->
+    <select id="selectActiveMembersByTeam" resultType="com.jiayuan.boot.system.team.model.entity.TeamMember">
+        SELECT * FROM team_member
+        WHERE team_id = #{_parameter}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+        ORDER BY joined_at ASC, id ASC
+    </select>
+
+    <!-- 查询指定账户加入的有效团队成员记录 -->
+    <select id="selectActiveMembershipsByAccount" resultType="com.jiayuan.boot.system.team.model.entity.TeamMember">
+        SELECT * FROM team_member
+        WHERE account_id = #{_parameter}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+        ORDER BY joined_at ASC, id ASC
+    </select>
+
+    <!-- 接受邀请时新增或恢复成员记录 -->
+    <insert id="upsertAcceptedMember">
+        INSERT INTO team_member (
+            team_id,
+            user_id,
+            account_id,
+            role,
+            status,
+            joined_at,
+            create_time,
+            update_time,
+            is_deleted
+        )
+        VALUES (
+            #{teamId},
+            #{userId},
+            #{accountId},
+            #{role},
+            #{status},
+            #{joinedAt},
+            NOW(),
+            NOW(),
+            0
+        )
+        ON DUPLICATE KEY UPDATE
+            user_id = VALUES(user_id),
+            role = VALUES(role),
+            status = VALUES(status),
+            joined_at = VALUES(joined_at),
+            update_time = NOW(),
+            is_deleted = 0
+    </insert>
+
+    <!-- 更新有效成员状态 -->
+    <update id="updateActiveMemberStatus">
+        UPDATE team_member
+        SET status = #{status},
+            update_time = NOW()
+        WHERE team_id = #{teamId}
+        AND account_id = #{accountId}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+    </update>
+
+    <!-- 更新有效成员角色 -->
+    <update id="updateActiveMemberRole">
+        UPDATE team_member
+        SET role = #{role},
+            update_time = NOW()
+        WHERE team_id = #{teamId}
+        AND account_id = #{accountId}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+    </update>
+
+    <!-- 批量更新团队有效成员状态 -->
+    <update id="updateActiveMembersStatusByTeam">
+        UPDATE team_member
+        SET status = #{status},
+            update_time = NOW()
+        WHERE team_id = #{teamId}
+        AND status = 'ACTIVE'
+        AND is_deleted = 0
+    </update>
+
+</mapper>

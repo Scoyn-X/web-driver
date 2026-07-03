@@ -1,0 +1,19 @@
+@use "./element-plus/var";
+@use "./element-plus/reset";
+
+body {
+  padding: 0;
+  margin: 0;
+  font-family:
+    "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑",
+    sans-serif;
+}
+
+.app-container {
+  padding: $app-container-padding;
+}
+
+// 进度条颜色
+#nprogress .bar {
+  background-color: var(--el-color-primary);
+}
